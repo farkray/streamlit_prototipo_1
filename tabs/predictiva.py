@@ -156,20 +156,24 @@ def mostrar(df: pd.DataFrame) -> None:
     st.subheader("¿Qué habría pasado en el grupo evaluado?")
     k1, k2, k3 = st.columns(3)
     k1.metric(
-        "Clientes para revisión",
+        "Clientes en el grupo de revisión",
         f"{cantidad_priorizada:,} de {total:,}",
-        f"{capacidad}% del grupo evaluado",
+        help=f"Es el {capacidad}% de clientes con score más alto dentro de la muestra histórica de prueba.",
     )
     k2.metric(
-        "Sí compraron dentro de ese grupo",
-        f"{compradores_priorizados:,} de {cantidad_priorizada:,}",
-        f"{_porcentaje(tasa_priorizados)} de ese grupo",
+        "Compraron dentro del grupo",
+        f"{compradores_priorizados:,} ({_porcentaje(tasa_priorizados)})",
+        help="Cantidad y proporción que realmente compró en la última campaña, entre los clientes priorizados.",
     )
     k3.metric(
         "Compradores detectados",
         _porcentaje(cobertura_compradores),
-        f"{compradores_priorizados:,} de {compradores_totales:,} compradores",
         help="Porcentaje de quienes compraron en la muestra histórica de prueba que quedaron dentro del grupo para revisar.",
+    )
+
+    st.caption(
+        f"Se revisa el {capacidad}% con los scores más altos. Eso define el tamaño del grupo; "
+        "no significa que ese porcentaje vaya a comprar."
     )
 
     st.markdown("#### Lectura para marketing")
@@ -192,17 +196,23 @@ def mostrar(df: pd.DataFrame) -> None:
             "Grupo de clientes": [f"Para revisar (mejores {capacidad}%)", "Resto de la muestra"],
             "Clientes": [len(priorizados), len(resto)],
             "Compraron": [compradores_priorizados, compradores_fuera],
-            "Proporción que compró": [
+            "Tasa de compra histórica": [
                 float(priorizados["compro"].mean()) if len(priorizados) else 0.0,
                 float(resto["compro"].mean()) if len(resto) else 0.0,
             ],
         }
     )
-    resumen["Proporción que compró"] = resumen["Proporción que compró"].map(_porcentaje)
-    st.dataframe(resumen, use_container_width=True, hide_index=True)
+    st.subheader("Comparación simple: ¿dónde se concentraron más compradores?")
+    grafica = resumen.set_index("Grupo de clientes")[["Tasa de compra histórica"]].mul(100)
+    grafica = grafica.rename(columns={"Tasa de compra histórica": "Clientes que compraron (%)"})
+    st.bar_chart(grafica)
+    resumen_legible = resumen.copy()
+    resumen_legible["Tasa de compra histórica"] = resumen_legible["Tasa de compra histórica"].map(_porcentaje)
+    st.dataframe(resumen_legible, use_container_width=True, hide_index=True)
     st.caption(
         f"También quedaron {compradores_fuera:,} compradores fuera del grupo para revisar. "
-        "Por eso, una priorización puede dejar oportunidades sin detectar."
+        "Por eso, una priorización puede dejar oportunidades sin detectar. La tasa es descriptiva: "
+        "no demuestra que contactar al grupo causaría más ventas."
     )
 
     with st.expander("Cómo se hizo esta evaluación"):
